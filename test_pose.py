@@ -673,33 +673,63 @@ def get_angle_tip(camera_angle, exercise):
     else:
         return f"[WARN] Camera angle: {camera_angle.upper()} view detected, {best.upper()} view recommended for {exercise}"
 
-def analyze_pose(landmarks, image, w, h, exercise=None, output_path="output.jpg", show_window=True):
-    if exercise is None:
-        exercise = get_exercise_from_user()
+def analyze_landmarks_for_exercise(landmarks, image_width, image_height, exercise):
+    """
+    Analyze pose landmarks for one exercise without drawing or saving output.
+    This pure analysis result can be reused by image and future video workflows.
+    """
     exercise = exercise.strip().lower()
     if exercise not in VALID_EXERCISES:
         raise ValueError(f"Invalid exercise '{exercise}'. Choose: {', '.join(VALID_EXERCISES)}")
 
     camera_angle = detect_camera_angle(landmarks)
-    angle_tip    = get_angle_tip(camera_angle, exercise)
-    print(f"\n{angle_tip}")
+    camera_tip = get_angle_tip(camera_angle, exercise)
 
     if exercise == "squat":
-        feedback, status, angles, phase, phase_desc = analyze_squat(landmarks)
+        feedback, statuses, angles, phase, phase_desc = analyze_squat(landmarks)
     elif exercise == "pushup":
-        feedback, status, angles, phase, phase_desc = analyze_pushup(landmarks)
+        feedback, statuses, angles, phase, phase_desc = analyze_pushup(landmarks)
     elif exercise == "plank":
-        feedback, status, angles, phase, phase_desc = analyze_plank(landmarks)
+        feedback, statuses, angles, phase, phase_desc = analyze_plank(landmarks)
     elif exercise == "pullup":
-        feedback, status, angles, phase, phase_desc = analyze_pullup(landmarks)
-    else:
-        return
+        feedback, statuses, angles, phase, phase_desc = analyze_pullup(landmarks)
 
     if camera_angle != IDEAL_CAMERA_ANGLES.get(exercise):
         phase_desc = phase_desc + " | NOTE: Angled shot may affect accuracy"
 
-    feedback.insert(0, angle_tip)
-    status.insert(0, "good" if "GOOD" in angle_tip else "warning")
+    feedback = [camera_tip] + feedback
+    statuses = ["good" if "GOOD" in camera_tip else "warning"] + statuses
+    score = sum(1 for s in statuses if s == "good")
+
+    return {
+        "exercise": exercise,
+        "phase": phase,
+        "phase_description": phase_desc,
+        "phase_desc": phase_desc,
+        "camera_angle": camera_angle,
+        "camera_tip": camera_tip,
+        "angles": angles,
+        "feedback": feedback,
+        "statuses": statuses,
+        "score": score,
+        "total": len(statuses),
+        "image_width": image_width,
+        "image_height": image_height
+    }
+
+def analyze_pose(landmarks, image, w, h, exercise=None, output_path="output.jpg", show_window=True):
+    if exercise is None:
+        exercise = get_exercise_from_user()
+
+    report = analyze_landmarks_for_exercise(landmarks, w, h, exercise)
+    exercise = report["exercise"]
+    feedback = report["feedback"]
+    status = report["statuses"]
+    angles = report["angles"]
+    phase = report["phase"]
+    phase_desc = report["phase_desc"]
+
+    print(f"\n{report['camera_tip']}")
 
     print(f"\nExercise: {exercise.upper()} | Phase: {phase}")
     print(f"({phase_desc})")
@@ -709,8 +739,7 @@ def analyze_pose(landmarks, image, w, h, exercise=None, output_path="output.jpg"
     print("\nFeedback:")
     for f in feedback:
         print(f"  {f}")
-    good = sum(1 for s in status if s == "good")
-    print(f"\nScore: {good}/{len(status)} checks passed")
+    print(f"\nScore: {report['score']}/{report['total']} checks passed")
 
     status_map = build_status_map(exercise, angles, status[1:])
     draw_skeleton(image, landmarks, w, h, status_map)
@@ -729,18 +758,8 @@ def analyze_pose(landmarks, image, w, h, exercise=None, output_path="output.jpg"
         cv2.destroyAllWindows()
 
     print(f"\n[GOOD] Output saved as {output_path}")
-    return {
-        "exercise": exercise,
-        "phase": phase,
-        "phase_desc": phase_desc,
-        "camera_angle": camera_angle,
-        "angles": angles,
-        "feedback": feedback,
-        "statuses": status,
-        "score": good,
-        "total": len(status),
-        "output_path": output_path
-    }
+    report["output_path"] = output_path
+    return report
 
 def format_report(report):
     lines = [

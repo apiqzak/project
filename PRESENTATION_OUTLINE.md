@@ -52,8 +52,10 @@ Workout photo
 
 Demo interfaces:
 
+- Main: OpenClaw FitForm skill
 - Local script: `test_pose.py`
-- Telegram bot: `telegram_bot.py`
+- OpenClaw bridge: `analyze_cli.py`
+- Optional legacy extra: `telegram_bot.py`
 
 ## Slide 5: CV Method Used
 
@@ -122,20 +124,28 @@ Explain how the report helps the user decide what to fix next.
 
 ## Slide 9: Live Demo
 
+OpenClaw demo:
+
+1. Open the FitForm Assistant skill.
+2. Upload a workout image.
+3. Type a simple prompt such as `analyze squat`.
+4. Run the analysis through `analyze_cli.py`.
+5. Show the annotated image and report.
+
 Local demo:
 
 ```powershell
 python test_pose.py
 ```
 
-Telegram demo:
+Optional legacy Telegram demo:
 
 ```powershell
 $env:TELEGRAM_BOT_TOKEN="paste-your-token-here"
 python telegram_bot.py
 ```
 
-Live Telegram steps:
+Live Telegram steps, only if time permits:
 
 1. Send `/start`.
 2. Choose exercise.
